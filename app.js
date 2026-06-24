@@ -1150,27 +1150,20 @@
 
     const cw = coach.offsetWidth;
     const ch = coach.offsetHeight;
-    const gap = 20;
+    const gap = 18;
     const margin = 12;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    const candidates = {
-      right: { left: rect.right + gap, top: clamp(rect.top + rect.height / 2 - ch / 2, margin, vh - ch - margin) },
-      left: { left: rect.left - gap - cw, top: clamp(rect.top + rect.height / 2 - ch / 2, margin, vh - ch - margin) },
-      below: { left: clamp(rect.left + rect.width / 2 - cw / 2, margin, vw - cw - margin), top: rect.bottom + gap },
-      above: { left: clamp(rect.left + rect.width / 2 - cw / 2, margin, vw - cw - margin), top: rect.top - gap - ch }
-    };
-
-    const preferred = step.placement && candidates[step.placement] ? step.placement : "right";
-    const order = [preferred, "right", "below", "above", "left"];
+    const preferred = step.placement && ["right", "left", "below", "above"].includes(step.placement) ? step.placement : "below";
+    const order = [preferred, "below", "above", "right", "left"].filter((side, i, all) => all.indexOf(side) === i);
 
     let chosen = null;
     let chosenSide = null;
     for (const side of order) {
-      const candidate = candidates[side];
-      if (candidate && fitsViewport(candidate, cw, ch, vw, vh, margin)) {
-        chosen = candidate;
+      const placed = placeOnSide(side, rect, cw, ch, vw, vh, gap, margin);
+      if (!placed.overlaps) {
+        chosen = placed;
         chosenSide = side;
         break;
       }
@@ -1189,6 +1182,36 @@
     coach.style.bottom = "auto";
 
     drawConnector(rect, chosenSide, coach.getBoundingClientRect());
+  }
+
+  // Place the card on a given side of the target, clamped fully into the
+  // viewport. Reports whether the clamped card would overlap the target.
+  function placeOnSide(side, rect, cw, ch, vw, vh, gap, margin) {
+    let left;
+    let top;
+    if (side === "right") {
+      left = rect.right + gap;
+      top = rect.top + rect.height / 2 - ch / 2;
+    } else if (side === "left") {
+      left = rect.left - gap - cw;
+      top = rect.top + rect.height / 2 - ch / 2;
+    } else if (side === "below") {
+      left = rect.left + rect.width / 2 - cw / 2;
+      top = rect.bottom + gap;
+    } else {
+      left = rect.left + rect.width / 2 - cw / 2;
+      top = rect.top - gap - ch;
+    }
+    left = clamp(left, margin, Math.max(margin, vw - cw - margin));
+    top = clamp(top, margin, Math.max(margin, vh - ch - margin));
+    const buffer = 2;
+    const overlaps = !(
+      left + cw <= rect.left - buffer ||
+      left >= rect.right + buffer ||
+      top + ch <= rect.top - buffer ||
+      top >= rect.bottom + buffer
+    );
+    return { left, top, overlaps };
   }
 
   function drawSpotlight(rect) {
@@ -1255,13 +1278,6 @@
 
   function hideConnector() {
     connector.classList.remove("show");
-  }
-
-  function fitsViewport(pos, cw, ch, vw, vh, margin) {
-    return pos.left >= margin
-      && pos.top >= margin
-      && pos.left + cw <= vw - margin
-      && pos.top + ch <= vh - margin;
   }
 
   function clamp(value, min, max) {

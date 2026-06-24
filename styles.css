@@ -1709,6 +1709,7 @@ body.intro-active {
 /* Lift the coach and toast above the dim. */
 .coach {
   z-index: 160;
+  text-align: left;
 }
 
 .toast {
